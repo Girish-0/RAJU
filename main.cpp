@@ -406,12 +406,6 @@ void scheduleAircraft()
             int availableTime = findAvailableTime(runways[r], current.scheduledTime, current.runwayTime);
             int waiting = availableTime - current.scheduledTime;
 
-            if (waiting > 0)
-            {
-                // A time adjustment means a potential schedule overlap was avoided
-                detectedConflictCount++;
-            }
-
             if (waiting < smallestWaiting)
             {
                 smallestWaiting = waiting;
@@ -423,6 +417,8 @@ void scheduleAircraft()
         // Assign to optimal runway
         if (bestRunwayIdx != -1)
         {
+            // Flight had to be moved from its requested time to avoid a clash
+            if (smallestWaiting > 0) detectedConflictCount++;
             Operation op;
             op.aircraftID = current.id;
             op.type = current.type;

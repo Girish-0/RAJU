@@ -244,11 +244,6 @@ void scheduleAircraft()
             int availableTime = findAvailableTime(runways[r], current.scheduledTime, current.runwayTime);
             int waiting = availableTime - current.scheduledTime;
 
-            if (waiting > 0)
-            {
-                detectedConflictCount++;
-            }
-
             if (waiting < smallestWaiting)
             {
                 smallestWaiting = waiting;
@@ -259,6 +254,7 @@ void scheduleAircraft()
 
         if (bestRunwayIdx != -1)
         {
+            if (smallestWaiting > 0) detectedConflictCount++;
             Operation op;
             op.aircraftID = current.id;
             op.type = current.type;
