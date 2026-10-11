@@ -13,7 +13,7 @@ import subprocess
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
-PORT = 5000
+PORT = int(os.environ.get("PORT", 5000))
 if len(sys.argv) > 1 and sys.argv[1].isdigit():
     PORT = int(sys.argv[1])
 
