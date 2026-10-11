@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intelligent Airport Runway Scheduling System | Alliance University</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            atc: {
+              bg: '#090d16',
+              card: '#111827',
+              border: '#1f293d',
+              accent: '#38bdf8',
+              emergency: '#ef4444',
+              warning: '#f59e0b',
+              success: '#10b981',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #090d16;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .radar-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .glow-emergency {
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- TOP NAVIGATION / BRANDING -->
+  <header class="border-b border-atc-border bg-atc-card/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-sky-500/20 text-white font-bold text-xl">
+          ✈️
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg font-bold text-white tracking-tight">ALLIANCE AIRPORT ATC RUNWAY SCHEDULER</h1>
+            <span class="px-2 py-0.5 text-xs font-semibold rounded bg-sky-500/10 text-sky-400 border border-sky-500/30">C++17 Core</span>
+          </div>
+          <p class="text-xs text-slate-400">Alliance School of Advanced Computing • Micro-Project Team 2</p>
+        </div>
+      </div>
+
+      <!-- Live Clock & Status Badge -->
+      <div class="flex items-center space-x-4 text-xs font-mono">
+        <div class="bg-slate-900/80 px-3 py-1.5 rounded-lg border border-atc-border flex items-center space-x-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 radar-pulse"></span>
+          <span class="text-slate-400">ENGINE:</span>
+          <span id="engineBadge" class="text-emerald-400 font-bold">NATIVE C++ ACTIVE</span>
+        </div>
+        <div class="bg-slate-900/80 px-3 py-1.5 rounded-lg border border-atc-border flex items-center space-x-2">
+          <span class="text-slate-400">UTC:</span>
+          <span id="liveClock" class="text-sky-300 font-bold">--:--:--</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6">
+
+    <!-- CONTROL PANEL & ACTIONS BAR -->
+    <div class="bg-atc-card border border-atc-border rounded-2xl p-4 sm:p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <button onclick="scheduleAircraft()" class="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white font-semibold text-sm rounded-xl shadow-lg shadow-sky-600/25 flex items-center space-x-2 transition">
+          <span>⚡</span>
+          <span>Run C++ Scheduler</span>
+        </button>
+        <button onclick="openAddModal()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-white font-medium text-sm rounded-xl transition flex items-center space-x-2">
+          <span>➕</span>
+          <span>Add Aircraft</span>
+        </button>
+        <button onclick="openEmergencyModal()" class="px-3.5 py-2.5 bg-red-950/60 hover:bg-red-900 border border-red-700/50 text-red-200 font-medium text-sm rounded-xl transition flex items-center space-x-2">
+          <span>🚨</span>
+          <span>Declare Emergency</span>
+        </button>
+        <button onclick="resetDemo()" class="px-3 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 font-medium text-sm rounded-xl transition">
+          🔄 Reset Demo Flights
+        </button>
+      </div>
+
+      <!-- Environmental / Weather Controls -->
+      <div class="flex items-center space-x-3 bg-slate-900/90 px-3.5 py-2 rounded-xl border border-atc-border">
+        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Weather:</span>
+        <select id="weatherSelect" onchange="changeWeather(this.value)" class="bg-slate-800 text-white text-xs font-semibold rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500">
+          <option value="Clear">☀️ Clear (3m buffer)</option>
+          <option value="Rain">🌧️ Rain (5m buffer)</option>
+          <option value="HeavyRain">🌫️ Fog / Heavy Rain (7m buffer)</option>
+          <option value="Storm">⛈️ Severe Storm (10m buffer)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- METRICS CARDS ROW -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div class="bg-atc-card border border-atc-border p-4 rounded-xl">
+        <p class="text-xs font-medium text-slate-400">Total Flights</p>
+        <p id="statTotalAircraft" class="text-2xl font-bold font-mono text-white mt-1">0</p>
+        <div class="flex items-center space-x-1 text-xs text-sky-400 mt-1">
+          <span id="statScheduled">0</span> sched / <span id="statWaiting">0</span> wait
+        </div>
+      </div>
+
+      <div class="bg-atc-card border border-atc-border p-4 rounded-xl">
+        <p class="text-xs font-medium text-slate-400">Active Runways</p>
+        <p id="statActiveRunways" class="text-2xl font-bold font-mono text-emerald-400 mt-1">3 / 3</p>
+        <p class="text-xs text-slate-400 mt-1">Operational Mode</p>
+      </div>
+
+      <div class="bg-atc-card border border-atc-border p-4 rounded-xl">
+        <p class="text-xs font-medium text-slate-400">Average Delay</p>
+        <p id="statAvgWait" class="text-2xl font-bold font-mono text-amber-400 mt-1">0.0 m</p>
+        <p class="text-xs text-slate-400 mt-1">Holding threshold</p>
+      </div>
+
+      <div class="bg-atc-card border border-atc-border p-4 rounded-xl">
+        <p class="text-xs font-medium text-slate-400">Max Delay</p>
+        <p id="statMaxWait" class="text-2xl font-bold font-mono text-rose-400 mt-1">0 m</p>
+        <p id="statMaxWaitFlight" class="text-xs text-slate-400 mt-1">Flight: None</p>
+      </div>
+
+      <div class="bg-atc-card border border-atc-border p-4 rounded-xl">
+        <p class="text-xs font-medium text-slate-400">Capacity Utilization</p>
+        <p id="statUtilization" class="text-2xl font-bold font-mono text-sky-400 mt-1">0%</p>
+        <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
+          <div id="utilizationBar" class="bg-sky-400 h-1.5 rounded-full" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="bg-atc-card border border-atc-border p-4 rounded-xl">
+        <p class="text-xs font-medium text-slate-400">Conflicts Resolved</p>
+        <p id="statConflictsResolved" class="text-2xl font-bold font-mono text-emerald-400 mt-1">0</p>
+        <p class="text-xs text-slate-400 mt-1">Auto-detected & fixed</p>
+      </div>
+    </div>
+
+    <!-- MAIN TWO-COLUMN LAYOUT -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- RUNWAYS TIMELINE (LEFT 8 COLS) -->
+      <div class="lg:col-span-8 space-y-4">
+        <div class="bg-atc-card border border-atc-border rounded-2xl p-5 shadow-lg">
+          <div class="flex items-center justify-between border-b border-atc-border pb-3 mb-4">
+            <div>
+              <h2 class="text-base font-bold text-white flex items-center space-x-2">
+                <span>🛫</span>
+                <span>Active Runway Schedules & Operational Windows</span>
+              </h2>
+              <p class="text-xs text-slate-400">Conflict-free time slot allocations computed by C++ Greedy Interval Scheduler</p>
+            </div>
+            <span id="separationBadge" class="text-xs font-mono bg-sky-950/70 text-sky-400 border border-sky-800 px-2.5 py-1 rounded-lg">
+              Buffer: 3 min
+            </span>
+          </div>
+
+          <!-- Dynamic Runway Containers -->
+          <div id="runwayContainer" class="space-y-4">
+            <!-- Runways injected via JS -->
+          </div>
+        </div>
+
+        <!-- CONFLICT DETECTION & ATC ADVISORY BANNER -->
+        <div class="bg-atc-card border border-atc-border rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <span>🛡️</span>
+              <span>Runway Conflict Detection Engine</span>
+            </h3>
+            <span id="conflictStatusBadge" class="text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              AUDIT: 0 CONFLICTS
+            </span>
+          </div>
+          <div id="conflictDetails" class="text-xs text-slate-300 bg-slate-900/60 p-3.5 rounded-xl border border-atc-border space-y-1 font-mono">
+            All operations satisfy minimum safety separation distances and runway availability constraints.
+          </div>
+        </div>
+      </div>
+
+      <!-- RADAR & FLIGHT REGISTRY (RIGHT 4 COLS) -->
+      <div class="lg:col-span-4 space-y-4">
+        <div class="bg-atc-card border border-atc-border rounded-2xl p-5 shadow-lg flex flex-col h-[640px]">
+          <div class="flex items-center justify-between border-b border-atc-border pb-3 mb-3">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center space-x-2">
+                <span>📡</span>
+                <span>Air Traffic Radar Queue</span>
+              </h2>
+              <p class="text-xs text-slate-400">Heap-ordered priority management</p>
+            </div>
+            <span class="text-xs bg-slate-800 text-slate-300 font-mono px-2 py-0.5 rounded" id="flightListCount">0 Flights</span>
+          </div>
+
+          <!-- Tabs for Filtering -->
+          <div class="flex space-x-1.5 p-1 bg-slate-900 rounded-xl mb-3 border border-atc-border text-xs">
+            <button onclick="setFlightFilter('all')" id="tabAll" class="flex-1 py-1.5 rounded-lg font-medium text-white bg-slate-800 transition">All Registered</button>
+            <button onclick="setFlightFilter('waiting')" id="tabWaiting" class="flex-1 py-1.5 rounded-lg font-medium text-slate-400 hover:text-white transition">Waiting Queue</button>
+          </div>
+
+          <!-- Scrollable Aircraft Cards -->
+          <div id="aircraftCardsList" class="flex-1 overflow-y-auto space-y-2.5 pr-1.5">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACADEMIC PROJECT DETAILS & COs FOOTER -->
+    <div class="bg-atc-card/60 border border-atc-border rounded-2xl p-5 text-xs text-slate-400">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <h4 class="font-bold text-slate-200 uppercase tracking-wider mb-1.5">Alliance University</h4>
+          <p>Alliance School of Advanced Computing</p>
+          <p class="mt-1">Micro-Project: Intelligent Airport Runway Scheduling System</p>
+          <p class="text-slate-300 font-medium mt-1">Team: Diyah B, Raju ram, Ajay Krishna S, Shazeb, Gaurav</p>
+        </div>
+        <div>
+          <h4 class="font-bold text-slate-200 uppercase tracking-wider mb-1.5">Course Outcomes Alignment</h4>
+          <p><span class="text-sky-400 font-bold">CO2:</span> Custom Max-Heap Priority Queue & Chronological Operations</p>
+          <p><span class="text-emerald-400 font-bold">CO3:</span> Greedy Interval Scheduling & Conflict Detection Engine</p>
+          <p><span class="text-amber-400 font-bold">CO4:</span> High-Performance C++ Decision-Support System</p>
+        </div>
+        <div>
+          <h4 class="font-bold text-slate-200 uppercase tracking-wider mb-1.5">Algorithmic Performance</h4>
+          <p>Heap Push/Pop: <span class="font-mono text-slate-300">O(log N)</span></p>
+          <p>Runway Slot Search: <span class="font-mono text-slate-300">O(M · K log K)</span></p>
+          <p>Global Scheduling: <span class="font-mono text-slate-300">O(N log N + N·M·K)</span></p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL: ADD AIRCRAFT -->
+  <div id="addModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-atc-card border border-atc-border rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-atc-border pb-3 mb-4">
+        <h3 class="font-bold text-white text-base flex items-center space-x-2">
+          <span>➕</span>
+          <span>Register New Aircraft</span>
+        </h3>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+      <form id="addAircraftForm" onsubmit="submitAddAircraft(event)" class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Aircraft / Flight ID</label>
+          <input type="number" id="newId" required placeholder="e.g. 201" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Operation Type</label>
+          <select id="newType" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <option value="Arrival">Arrival (Landing)</option>
+            <option value="Departure">Departure (Takeoff)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Scheduled Time (HH:MM 24-hr)</label>
+          <input type="text" id="newTime" required pattern="[0-2][0-9]:[0-5][0-9]" placeholder="e.g. 08:45" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Priority (1-5)</label>
+            <select id="newPriority" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500">
+              <option value="1">1 - Cargo / Low</option>
+              <option value="2">2 - Standard</option>
+              <option value="3" selected>3 - Scheduled / VIP</option>
+              <option value="4">4 - High Urgency</option>
+              <option value="5">5 - Critical Emergency</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Runway Time (mins)</label>
+            <input type="number" id="newRunwayTime" required min="1" max="30" value="4" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono">
+          </div>
+        </div>
+        <div class="flex items-center space-x-2 pt-1">
+          <input type="checkbox" id="newEmergency" class="rounded bg-slate-900 border-slate-700 text-red-500 focus:ring-red-500">
+          <label for="newEmergency" class="font-medium text-red-400">Emergency Flight (Priority 5 Preemption)</label>
+        </div>
+        <div class="flex items-center justify-end space-x-2.5 pt-3 border-t border-atc-border">
+          <button type="button" onclick="closeAddModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold shadow-lg shadow-sky-600/30">Register & Schedule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: DELAY FLIGHT -->
+  <div id="delayModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-atc-card border border-atc-border rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-atc-border pb-3 mb-4">
+        <h3 class="font-bold text-white text-base flex items-center space-x-2">
+          <span>⏱️</span>
+          <span>Update Flight Delay</span>
+        </h3>
+        <button onclick="closeDelayModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+      <form onsubmit="submitDelay(event)" class="space-y-4 text-xs">
+        <input type="hidden" id="delayFlightId">
+        <p class="text-slate-300">Applying delay to Flight <span id="delayFlightIdLabel" class="font-mono text-sky-400 font-bold"></span></p>
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Delay Duration in Minutes</label>
+          <input type="number" id="delayMinsInput" required min="1" max="180" value="15" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono">
+        </div>
+        <div class="flex items-center justify-end space-x-2.5 pt-2 border-t border-atc-border">
+          <button type="button" onclick="closeDelayModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold">Apply Delay</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EMERGENCY FLIGHT SELECTOR -->
+  <div id="emergencyModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-atc-card border border-red-900/60 rounded-2xl max-w-sm w-full p-6 shadow-2xl glow-emergency">
+      <div class="flex items-center justify-between border-b border-red-900/50 pb-3 mb-4">
+        <h3 class="font-bold text-red-400 text-base flex items-center space-x-2">
+          <span>🚨</span>
+          <span>Declare Inbound Emergency</span>
+        </h3>
+        <button onclick="closeEmergencyModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
+      </div>
+      <div class="space-y-3.5 text-xs">
+        <p class="text-slate-300">Select any flight to elevate to Emergency Priority 5 with immediate runway preemption:</p>
+        <select id="emergencySelectId" class="w-full bg-slate-900 border border-red-800/60 rounded-xl px-3 py-2 text-white focus:outline-none font-mono">
+          <!-- Injected via JS -->
+        </select>
+        <div class="flex items-center justify-end space-x-2.5 pt-3 border-t border-red-900/50">
+          <button type="button" onclick="closeEmergencyModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-medium">Cancel</button>
+          <button onclick="triggerEmergencyFromModal()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold shadow-lg shadow-red-600/30">TRIGGER EMERGENCY</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT FRONTEND CONTROLLER -->
+  <script>
+    let appState = null;
+    let flightFilter = 'all';
+
+    // Live Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('liveClock').textContent = now.toTimeString().split(' ')[0];
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    let isClientEngine = false;
+
+    // ============================================================
+    // C++ CORE LOGIC CLIENT MIRROR (For GitHub Pages & Static Hosting)
+    // Satisfies Course Outcomes CO2, CO3, CO4 directly in-browser
+    // ============================================================
+    class ClientRunwayEngine {
+      constructor() {
+        this.resetDemo();
+      }
+
+      convertToMinutes(timeStr) {
+        if (!timeStr || timeStr.length !== 5 || timeStr[2] !== ':') return -1;
+        const parts = timeStr.split(':');
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return -1;
+        return h * 60 + m;
+      }
+
+      convertToTime(mins) {
+        if (mins == null || mins < 0) return "--:--";
+        const h = Math.floor(mins / 60) % 24;
+        const m = mins % 60;
+        return String(h).padStart(2, '0') + ":" + String(m).padStart(2, '0');
+      }
+
+      higherPriority(a, b) {
+        if (a.emergency !== b.emergency) return a.emergency;
+        if (a.priority !== b.priority) return a.priority > b.priority;
+        if (a.scheduledTime !== b.scheduledTime) return a.scheduledTime < b.scheduledTime;
+        return a.runwayTime < b.runwayTime;
+      }
+
+      // Custom Max-Heap Priority Queue (CO2)
+      buildPriorityQueue(aircraftList) {
+        const heap = [];
+        const swap = (i, j) => { [heap[i], heap[j]] = [heap[j], heap[i]]; };
+
+        const push = (item) => {
+          heap.push(item);
+          let cur = heap.length - 1;
+          while (cur > 0) {
+            let parent = Math.floor((cur - 1) / 2);
+            if (this.higherPriority(heap[cur], heap[parent])) {
+              swap(cur, parent);
+              cur = parent;
+            } else break;
+          }
+        };
+
+        const pop = () => {
+          if (heap.length === 0) return null;
+          const top = heap[0];
+          const last = heap.pop();
+          if (heap.length > 0) {
+            heap[0] = last;
+            let cur = 0;
+            while (true) {
+              let left = 2 * cur + 1;
+              let right = 2 * cur + 2;
+              let highest = cur;
+              if (left < heap.length && this.higherPriority(heap[left], heap[highest])) highest = left;
+              if (right < heap.length && this.higherPriority(heap[right], heap[highest])) highest = right;
+              if (highest !== cur) {
+                swap(cur, highest);
+                cur = highest;
+              } else break;
+            }
+          }
+          return top;
+        };
+
+        aircraftList.forEach(p => push(p));
+        return { pop, isEmpty: () => heap.length === 0 };
+      }
+
+      findAvailableTime(runway, requestedTime, occupationTime) {
+        let proposedTime = requestedTime;
+        runway.operations.sort((a, b) => a.startTime - b.startTime);
+        let found = false;
+        while (!found) {
+          found = true;
+          let proposedEnd = proposedTime + occupationTime;
+          for (const op of runway.operations) {
+            if (proposedTime < op.endTime + this.safetySeparation &&
+                proposedEnd + this.safetySeparation > op.startTime) {
+              proposedTime = op.endTime + this.safetySeparation;
+              found = false;
+              break;
+            }
+          }
+        }
+        return proposedTime;
+      }
+
+      scheduleAircraft() {
+        this.runways.forEach(r => r.operations = []);
+        this.aircraft.forEach(p => {
+          p.scheduled = false;
+          p.assignedRunway = -1;
+          p.actualTime = -1;
+          p.waitingTime = 0;
+        });
+
+        const pq = this.buildPriorityQueue(this.aircraft);
+        let resolvedCount = 0;
+
+        while (!pq.isEmpty()) {
+          const current = pq.pop();
+          let bestRunwayIdx = -1;
+          let bestStartTime = -1;
+          let smallestWaiting = 999999;
+
+          for (let r = 0; r < this.runways.length; r++) {
+            if (!this.runways[r].active) continue;
+
+            let availTime = this.findAvailableTime(this.runways[r], current.scheduledTime, current.runwayTime);
+            let wait = availTime - current.scheduledTime;
+            if (wait > 0) resolvedCount++;
+
+            if (wait < smallestWaiting) {
+              smallestWaiting = wait;
+              bestRunwayIdx = r;
+              bestStartTime = availTime;
+            }
+          }
+
+          if (bestRunwayIdx !== -1) {
+            const op = {
+              aircraftID: current.id,
+              type: current.type,
+              startTime: bestStartTime,
+              endTime: bestStartTime + current.runwayTime,
+              startTimeStr: this.convertToTime(bestStartTime),
+              endTimeStr: this.convertToTime(bestStartTime + current.runwayTime),
+              isEmergency: current.emergency
+            };
+            this.runways[bestRunwayIdx].operations.push(op);
+            this.runways[bestRunwayIdx].operations.sort((a, b) => a.startTime - b.startTime);
+
+            const target = this.aircraft.find(p => p.id === current.id);
+            if (target) {
+              target.scheduled = true;
+              target.assignedRunway = this.runways[bestRunwayIdx].id;
+              target.actualTime = bestStartTime;
+              target.actualTimeStr = this.convertToTime(bestStartTime);
+              target.waitingTime = smallestWaiting;
+            }
+          }
+        }
+        this.conflictsResolved += resolvedCount;
+      }
+
+      auditConflicts() {
+        const list = [];
+        for (const r of this.runways) {
+          if (!r.active && r.operations.length > 0) {
+            for (const op of r.operations) {
+              list.push({
+                runwayId: r.id,
+                aircraftA: op.aircraftID,
+                aircraftB: -1,
+                startAStr: op.startTimeStr,
+                endAStr: op.endTimeStr,
+                startBStr: "--:--",
+                endBStr: "--:--",
+                reason: "Operation assigned on CLOSED/MAINTENANCE runway"
+              });
+            }
+          }
+          if (r.operations.length < 2) continue;
+          for (let i = 0; i < r.operations.length - 1; i++) {
+            const curr = r.operations[i];
+            const next = r.operations[i + 1];
+            if (next.startTime < curr.endTime) {
+              list.push({
+                runwayId: r.id,
+                aircraftA: curr.aircraftID,
+                aircraftB: next.aircraftID,
+                startAStr: curr.startTimeStr,
+                endAStr: curr.endTimeStr,
+                startBStr: next.startTimeStr,
+                endBStr: next.endTimeStr,
+                reason: "Direct Time Overlap (Runway collision hazard)"
+              });
+            } else if (next.startTime < curr.endTime + this.safetySeparation) {
+              list.push({
+                runwayId: r.id,
+                aircraftA: curr.aircraftID,
+                aircraftB: next.aircraftID,
+                startAStr: curr.startTimeStr,
+                endAStr: curr.endTimeStr,
+                startBStr: next.startTimeStr,
+                endBStr: next.endTimeStr,
+                reason: `Safety Separation Gap Violated (${next.startTime - curr.endTime} min < ${this.safetySeparation} min required)`
+              });
+            }
+          }
+        }
+        return list;
+      }
+
+      computeMetrics() {
+        const activeRunways = this.runways.filter(r => r.active).length;
+        let scheduled = 0, waiting = 0, emergency = 0, totalWait = 0, maxWait = 0, maxWaitId = -1, totalOcc = 0;
+
+        for (const p of this.aircraft) {
+          if (p.emergency) emergency++;
+          if (p.scheduled) {
+            scheduled++;
+            totalWait += p.waitingTime;
+            totalOcc += p.runwayTime;
+            if (p.waitingTime > maxWait) {
+              maxWait = p.waitingTime;
+              maxWaitId = p.id;
+            }
+          } else waiting++;
+        }
+
+        const avgWait = scheduled > 0 ? (totalWait / scheduled).toFixed(2) : "0.00";
+        const cap = activeRunways * 720;
+        const util = cap > 0 ? ((totalOcc / cap) * 100).toFixed(2) : "0.00";
+
+        return {
+          totalAircraft: this.aircraft.length,
+          scheduledAircraft: scheduled,
+          waitingAircraft: waiting,
+          emergencyCount: emergency,
+          activeRunways: activeRunways,
+          totalWaitTime: totalWait,
+          avgWaitTime: parseFloat(avgWait),
+          maxWaitTime: maxWait,
+          maxWaitFlightId: maxWaitId,
+          runwayUtilization: parseFloat(util),
+          conflictsDetected: this.auditConflicts().length
+        };
+      }
+
+      getState() {
+        return {
+          weather: this.weather,
+          safetySeparation: this.safetySeparation,
+          conflictsResolved: this.conflictsResolved,
+          runways: JSON.parse(JSON.stringify(this.runways)),
+          aircraft: JSON.parse(JSON.stringify(this.aircraft)),
+          conflicts: this.auditConflicts(),
+          metrics: this.computeMetrics()
+        };
+      }
+
+      resetDemo() {
+        this.weather = "Clear";
+        this.safetySeparation = 3;
+        this.conflictsResolved = 0;
+        this.runways = [
+          { id: 1, code: "09L (Primary)", active: true, operations: [] },
+          { id: 2, code: "09R (Secondary)", active: true, operations: [] },
+          { id: 3, code: "27 (Crosswind)", active: true, operations: [] }
+        ];
+        this.aircraft = [
+          { id: 101, type: "Arrival", scheduledTime: 480, scheduledTimeStr: "08:00", priority: 3, emergency: false, runwayTime: 5, scheduled: false, assignedRunway: -1, actualTime: -1, actualTimeStr: "--:--", waitingTime: 0 },
+          { id: 102, type: "Departure", scheduledTime: 485, scheduledTimeStr: "08:05", priority: 2, emergency: false, runwayTime: 4, scheduled: false, assignedRunway: -1, actualTime: -1, actualTimeStr: "--:--", waitingTime: 0 },
+          { id: 103, type: "Arrival", scheduledTime: 490, scheduledTimeStr: "08:10", priority: 4, emergency: false, runwayTime: 5, scheduled: false, assignedRunway: -1, actualTime: -1, actualTimeStr: "--:--", waitingTime: 0 },
+          { id: 104, type: "Departure", scheduledTime: 490, scheduledTimeStr: "08:10", priority: 2, emergency: false, runwayTime: 4, scheduled: false, assignedRunway: -1, actualTime: -1, actualTimeStr: "--:--", waitingTime: 0 },
+          { id: 105, type: "Arrival", scheduledTime: 495, scheduledTimeStr: "08:15", priority: 5, emergency: true, runwayTime: 6, scheduled: false, assignedRunway: -1, actualTime: -1, actualTimeStr: "--:--", waitingTime: 0 },
+          { id: 106, type: "Departure", scheduledTime: 500, scheduledTimeStr: "08:20", priority: 3, emergency: false, runwayTime: 4, scheduled: false, assignedRunway: -1, actualTime: -1, actualTimeStr: "--:--", waitingTime: 0 },
+          { id: 107, type: "Arrival", scheduledTime: 505, scheduledTimeStr: "08:25", priority: 1, emergency: false, runwayTime: 5, scheduled: false, assignedRunway: -1, actualTime: -1, actualTimeStr: "--:--", waitingTime: 0 },
+          { id: 108, type: "Departure", scheduledTime: 510, scheduledTimeStr: "08:30", priority: 4, emergency: false, runwayTime: 4, scheduled: false, assignedRunway: -1, actualTime: -1, actualTimeStr: "--:--", waitingTime: 0 }
+        ];
+        this.scheduleAircraft();
+        return this.getState();
+      }
+
+      handleAction(payload) {
+        const action = payload.action;
+        if (action === 'schedule') {
+          this.scheduleAircraft();
+        } else if (action === 'reset_demo') {
+          this.resetDemo();
+        } else if (action === 'weather') {
+          const w = payload.weather;
+          if (w === 'Clear') { this.weather = 'Clear'; this.safetySeparation = 3; }
+          else if (w === 'Rain') { this.weather = 'Rain'; this.safetySeparation = 5; }
+          else if (w === 'HeavyRain') { this.weather = 'Heavy Rain / Fog'; this.safetySeparation = 7; }
+          else if (w === 'Storm') { this.weather = 'Severe Storm'; this.safetySeparation = 10; }
+          this.scheduleAircraft();
+        } else if (action === 'toggle_runway') {
+          const r = this.runways.find(x => x.id === payload.runwayId);
+          if (r) r.active = !r.active;
+          this.scheduleAircraft();
+        } else if (action === 'emergency') {
+          const p = this.aircraft.find(x => x.id === payload.id);
+          if (p) {
+            p.emergency = true;
+            p.priority = 5;
+          }
+          this.scheduleAircraft();
+        } else if (action === 'delay') {
+          const p = this.aircraft.find(x => x.id === payload.id);
+          if (p) {
+            p.scheduledTime += payload.delayMins;
+            p.scheduledTimeStr = this.convertToTime(p.scheduledTime);
+          }
+          this.scheduleAircraft();
+        } else if (action === 'delete_aircraft') {
+          this.aircraft = this.aircraft.filter(x => x.id !== payload.id);
+          this.scheduleAircraft();
+        } else if (action === 'add_aircraft') {
+          const newPlane = {
+            id: payload.id,
+            type: payload.type,
+            scheduledTime: this.convertToMinutes(payload.time),
+            scheduledTimeStr: payload.time,
+            priority: payload.emergency ? 5 : payload.priority,
+            emergency: !!payload.emergency,
+            runwayTime: payload.runwayTime,
+            scheduled: false,
+            assignedRunway: -1,
+            actualTime: -1,
+            actualTimeStr: "--:--",
+            waitingTime: 0
+          };
+          this.aircraft = this.aircraft.filter(x => x.id !== newPlane.id);
+          this.aircraft.push(newPlane);
+          this.scheduleAircraft();
+        }
+        return this.getState();
+      }
+    }
+
+    const clientEngine = new ClientRunwayEngine();
+
+    function updateEngineBadge(isBackendLive) {
+      const badge = document.getElementById('engineBadge');
+      if (!badge) return;
+      if (isBackendLive) {
+        badge.textContent = 'NATIVE C++ ACTIVE (LOCAL)';
+        badge.className = 'text-emerald-400 font-bold';
+      } else {
+        badge.textContent = 'GITHUB PAGES (C++ CORE MIRROR)';
+        badge.className = 'text-sky-400 font-bold';
+      }
+    }
+
+    // Fetch live state from backend with seamless GitHub Pages fallback
+    async function fetchState() {
+      try {
+        const res = await fetch('/api/state');
+        if (!res.ok) throw new Error('API Unavailable');
+        appState = await res.json();
+        isClientEngine = false;
+        updateEngineBadge(true);
+        renderDashboard();
+      } catch (err) {
+        // Fallback for GitHub Pages static hosting
+        isClientEngine = true;
+        updateEngineBadge(false);
+        appState = clientEngine.getState();
+        renderDashboard();
+      }
+    }
+
+    // Post action to C++ engine or execute on in-browser engine if on GitHub Pages
+    async function sendAction(payload) {
+      if (isClientEngine) {
+        appState = clientEngine.handleAction(payload);
+        renderDashboard();
+        return;
+      }
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Action Error');
+        appState = await res.json();
+        renderDashboard();
+      } catch (err) {
+        // Seamless fallback if server disconnects
+        isClientEngine = true;
+        updateEngineBadge(false);
+        appState = clientEngine.handleAction(payload);
+        renderDashboard();
+      }
+    }
+
+    function renderDashboard() {
+      if (!appState) return;
+
+      // Update Weather Selector & Badge
+      const weatherSelect = document.getElementById('weatherSelect');
+      if (appState.weather === 'Clear') weatherSelect.value = 'Clear';
+      else if (appState.weather === 'Rain') weatherSelect.value = 'Rain';
+      else if (appState.weather.includes('Fog') || appState.weather.includes('Heavy Rain')) weatherSelect.value = 'HeavyRain';
+      else if (appState.weather.includes('Storm')) weatherSelect.value = 'Storm';
+
+      document.getElementById('separationBadge').textContent = `Buffer: ${appState.safetySeparation} min (${appState.weather})`;
+
+      // Metrics
+      const m = appState.metrics || {};
+      document.getElementById('statTotalAircraft').textContent = m.totalAircraft || 0;
+      document.getElementById('statScheduled').textContent = m.scheduledAircraft || 0;
+      document.getElementById('statWaiting').textContent = m.waitingAircraft || 0;
+      document.getElementById('statActiveRunways').textContent = `${m.activeRunways || 0} / ${appState.runways.length}`;
+      document.getElementById('statAvgWait').textContent = `${m.avgWaitTime || 0} m`;
+      document.getElementById('statMaxWait').textContent = `${m.maxWaitTime || 0} m`;
+      document.getElementById('statMaxWaitFlight').textContent = m.maxWaitFlightId && m.maxWaitFlightId !== -1 ? `Flight: #${m.maxWaitFlightId}` : 'Flight: None';
+      document.getElementById('statUtilization').textContent = `${m.runwayUtilization || 0}%`;
+      document.getElementById('utilizationBar').style.width = `${Math.min(100, m.runwayUtilization || 0)}%`;
+      document.getElementById('statConflictsResolved').textContent = appState.conflictsResolved || 0;
+
+      // Render Runways Timeline
+      const runwayBox = document.getElementById('runwayContainer');
+      runwayBox.innerHTML = '';
+
+      appState.runways.forEach(runway => {
+        const card = document.createElement('div');
+        card.className = `rounded-xl p-4 border transition ${
+          runway.active ? 'bg-slate-900/80 border-atc-border' : 'bg-red-950/20 border-red-900/50'
+        }`;
+
+        let operationsHtml = '';
+        if (!runway.active) {
+          operationsHtml = `
+            <div class="py-5 text-center text-red-400 font-mono text-xs flex items-center justify-center space-x-2">
+              <span>⛔</span>
+              <span>RUNWAY TEMPORARILY CLOSED FOR MAINTENANCE / INSPECTION</span>
+            </div>
+          `;
+        } else if (runway.operations.length === 0) {
+          operationsHtml = `
+            <div class="py-5 text-center text-slate-500 font-mono text-xs">
+              No operations scheduled. Runway idle and available.
+            </div>
+          `;
+        } else {
+          operationsHtml = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 mt-3">
+              ${runway.operations.map(op => `
+                <div class="p-3 rounded-xl border text-xs font-mono transition ${
+                  op.isEmergency 
+                    ? 'bg-red-950/70 border-red-500 text-red-200 glow-emergency'
+                    : op.type === 'Arrival'
+                    ? 'bg-sky-950/40 border-sky-800/70 text-sky-200'
+                    : 'bg-emerald-950/40 border-emerald-800/70 text-emerald-200'
+                }">
+                  <div class="flex items-center justify-between">
+                    <span class="font-bold flex items-center space-x-1.5">
+                      <span>${op.type === 'Arrival' ? '🛬' : '🛫'}</span>
+                      <span>Flight #${op.aircraftID}</span>
+                    </span>
+                    ${op.isEmergency ? '<span class="px-1.5 py-0.5 rounded bg-red-600 text-white text-[10px] font-bold">EMERGENCY</span>' : ''}
+                  </div>
+                  <div class="mt-2 text-slate-300 flex justify-between">
+                    <span>Window:</span>
+                    <span class="font-bold text-white">${op.startTimeStr} - ${op.endTimeStr}</span>
+                  </div>
+                  <div class="text-[11px] text-slate-400 flex justify-between mt-0.5">
+                    <span>Type:</span>
+                    <span>${op.type}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <span class="text-sm font-bold text-white font-mono">RUNWAY ${runway.id}</span>
+              <span class="text-xs text-slate-400">(${runway.code})</span>
+              <span class="text-[11px] font-semibold px-2 py-0.5 rounded ${
+                runway.active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/30'
+              }">
+                ${runway.active ? 'ACTIVE' : 'MAINTENANCE'}
+              </span>
+            </div>
+            <button onclick="toggleRunway(${runway.id})" class="text-xs px-2.5 py-1 rounded-lg border transition ${
+              runway.active ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border-emerald-700'
+            }">
+              ${runway.active ? 'Close for Maintenance' : 'Reopen Runway'}
+            </button>
+          </div>
+          ${operationsHtml}
+        `;
+        runwayBox.appendChild(card);
+      });
+
+      // Conflict Details
+      const conflictList = appState.conflicts || [];
+      const conflictBadge = document.getElementById('conflictStatusBadge');
+      const conflictBox = document.getElementById('conflictDetails');
+
+      if (conflictList.length === 0) {
+        conflictBadge.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        conflictBadge.textContent = 'AUDIT: 0 CONFLICTS';
+        conflictBox.innerHTML = `
+          <p class="text-emerald-400">✅ All runway slot assignments satisfy safety separation (${appState.safetySeparation} min buffer).</p>
+          <p class="text-slate-400">Zero timing clashes or inactive runway violations detected in current operations.</p>
+        `;
+      } else {
+        conflictBadge.className = 'text-xs font-mono px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30';
+        conflictBadge.textContent = `AUDIT: ${conflictList.length} CONFLICT(S)`;
+        conflictBox.innerHTML = conflictList.map(c => `
+          <p class="text-rose-400">⚠️ Runway ${c.runwayId}: Flight #${c.aircraftA} [${c.startAStr}-${c.endAStr}] vs Flight #${c.aircraftB} [${c.startBStr}-${c.endBStr}] &rarr; ${c.reason}</p>
+        `).join('') + `<p class="text-sky-400 mt-2">Click "Run C++ Scheduler" to auto-resolve with priority queue.</p>`;
+      }
+
+      // Aircraft Radar List
+      renderAircraftList();
+    }
+
+    function setFlightFilter(f) {
+      flightFilter = f;
+      document.getElementById('tabAll').className = f === 'all' 
+        ? 'flex-1 py-1.5 rounded-lg font-medium text-white bg-slate-800 transition'
+        : 'flex-1 py-1.5 rounded-lg font-medium text-slate-400 hover:text-white transition';
+      document.getElementById('tabWaiting').className = f === 'waiting'
+        ? 'flex-1 py-1.5 rounded-lg font-medium text-white bg-slate-800 transition'
+        : 'flex-1 py-1.5 rounded-lg font-medium text-slate-400 hover:text-white transition';
+      renderAircraftList();
+    }
+
+    function renderAircraftList() {
+      if (!appState) return;
+      const list = appState.aircraft || [];
+      const filtered = flightFilter === 'waiting' ? list.filter(p => !p.scheduled) : list;
+      document.getElementById('flightListCount').textContent = `${filtered.length} Flights`;
+
+      const box = document.getElementById('aircraftCardsList');
+      box.innerHTML = '';
+
+      if (filtered.length === 0) {
+        box.innerHTML = `<div class="p-8 text-center text-slate-500 text-xs">No flights in this view.</div>`;
+        return;
+      }
+
+      filtered.forEach(p => {
+        const item = document.createElement('div');
+        item.className = `p-3 rounded-xl border text-xs transition ${
+          p.emergency 
+            ? 'bg-red-950/40 border-red-800/70' 
+            : p.scheduled 
+            ? 'bg-slate-900/60 border-atc-border' 
+            : 'bg-amber-950/20 border-amber-800/40'
+        }`;
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold font-mono text-white">#${p.id}</span>
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                p.type === 'Arrival' ? 'bg-sky-500/20 text-sky-400' : 'bg-emerald-500/20 text-emerald-400'
+              }">${p.type}</span>
+              ${p.emergency ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white">EMERGENCY</span>' : ''}
+            </div>
+            <span class="font-mono text-slate-400 text-[11px]">${p.scheduledTimeStr}</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 mt-2 text-[11px] text-slate-300">
+            <div>Priority: <span class="font-bold ${p.priority >= 4 ? 'text-amber-400' : 'text-slate-200'}">${p.priority} / 5</span></div>
+            <div>Occupancy: <span class="font-mono">${p.runwayTime} mins</span></div>
+            <div>Status: <span class="font-semibold ${p.scheduled ? 'text-emerald-400' : 'text-amber-400'}">${p.scheduled ? 'SCHEDULED (R' + p.assignedRunway + ')' : 'WAITING'}</span></div>
+            <div>Delay: <span class="font-mono text-rose-300">${p.waitingTime} mins</span></div>
+          </div>
+
+          <div class="flex items-center justify-end space-x-2 mt-2.5 pt-2 border-t border-slate-800/70">
+            ${!p.emergency ? `
+              <button onclick="declareEmergency(${p.id})" class="px-2 py-1 bg-red-950 hover:bg-red-900 text-red-300 border border-red-800/50 rounded text-[10px] font-semibold transition">
+                🚨 Emergency
+              </button>
+            ` : ''}
+            <button onclick="openDelayModal(${p.id})" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded text-[10px] transition">
+              ⏱️ Delay
+            </button>
+            <button onclick="deleteFlight(${p.id})" class="px-2 py-1 bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-700 rounded text-[10px] transition">
+              ✕
+            </button>
+          </div>
+        `;
+        box.appendChild(item);
+      });
+    }
+
+    // Modal Operations
+    function openAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
+    function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); }
+
+    function openDelayModal(id) {
+      document.getElementById('delayFlightId').value = id;
+      document.getElementById('delayFlightIdLabel').textContent = '#' + id;
+      document.getElementById('delayModal').classList.remove('hidden');
+    }
+    function closeDelayModal() { document.getElementById('delayModal').classList.add('hidden'); }
+
+    function openEmergencyModal() {
+      const sel = document.getElementById('emergencySelectId');
+      sel.innerHTML = '';
+      if (appState && appState.aircraft) {
+        appState.aircraft.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = `Flight #${p.id} (${p.type}) - Sched: ${p.scheduledTimeStr} - Priority: ${p.priority}`;
+          sel.appendChild(opt);
+        });
+      }
+      document.getElementById('emergencyModal').classList.remove('hidden');
+    }
+    function closeEmergencyModal() { document.getElementById('emergencyModal').classList.add('hidden'); }
+
+    // Action Triggers
+    function scheduleAircraft() {
+      sendAction({ action: 'schedule' });
+    }
+
+    function resetDemo() {
+      sendAction({ action: 'reset_demo' });
+    }
+
+    function changeWeather(w) {
+      sendAction({ action: 'weather', weather: w });
+    }
+
+    function toggleRunway(id) {
+      sendAction({ action: 'toggle_runway', runwayId: id });
+    }
+
+    function declareEmergency(id) {
+      sendAction({ action: 'emergency', id: id });
+    }
+
+    function triggerEmergencyFromModal() {
+      const id = document.getElementById('emergencySelectId').value;
+      if (id) {
+        closeEmergencyModal();
+        declareEmergency(parseInt(id));
+      }
+    }
+
+    function submitDelay(e) {
+      e.preventDefault();
+      const id = parseInt(document.getElementById('delayFlightId').value);
+      const mins = parseInt(document.getElementById('delayMinsInput').value);
+      closeDelayModal();
+      sendAction({ action: 'delay', id: id, delayMins: mins });
+    }
+
+    function deleteFlight(id) {
+      if (confirm(`Remove flight #${id} from the airport registry?`)) {
+        sendAction({ action: 'delete_aircraft', id: id });
+      }
+    }
+
+    function submitAddAircraft(e) {
+      e.preventDefault();
+      const id = parseInt(document.getElementById('newId').value);
+      const type = document.getElementById('newType').value;
+      const time = document.getElementById('newTime').value;
+      const priority = parseInt(document.getElementById('newPriority').value);
+      const runwayTime = parseInt(document.getElementById('newRunwayTime').value);
+      const emergency = document.getElementById('newEmergency').checked;
+
+      closeAddModal();
+      sendAction({
+        action: 'add_aircraft',
+        id: id,
+        type: type,
+        time: time,
+        priority: priority,
+        runwayTime: runwayTime,
+        emergency: emergency
+      });
+      document.getElementById('addAircraftForm').reset();
+    }
+
+    // Initial Load
+    fetchState();
+  </script>
+</body>
+</html>
+
