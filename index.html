@@ -679,7 +679,7 @@ function renderStrips() {
     const rb = document.createElement('button');
     rb.className = 'danger';
     rb.textContent = 'Remove';
-    rb.onclick = () => deleteFlight(p.id);
+    rb.onclick = () => confirmableRemove(rb, p.id);
     actions.appendChild(rb);
     strip.appendChild(actions);
     box.appendChild(strip);
@@ -695,8 +695,19 @@ function resetDemo() { sendAction({ action: 'reset_demo' }); }
 function changeWeather(w) { sendAction({ action: 'weather', weather: w }); }
 function toggleRunway(id) { sendAction({ action: 'toggle_runway', runwayId: id }); }
 function declareEmergency(id) { sendAction({ action: 'emergency', id: id }); }
-function deleteFlight(id) {
-  if (confirm(`Remove flight #${id}?`)) sendAction({ action: 'delete_aircraft', id: id });
+function confirmableRemove(btn, id) {
+  if (btn.dataset.confirming) {
+    clearTimeout(Number(btn.dataset.timer));
+    sendAction({ action: 'delete_aircraft', id: id });
+    return;
+  }
+  btn.dataset.confirming = '1';
+  btn.textContent = 'Confirm remove?';
+  const timer = setTimeout(() => {
+    delete btn.dataset.confirming;
+    btn.textContent = 'Remove';
+  }, 3000);
+  btn.dataset.timer = String(timer);
 }
 
 function openAddModal() {
